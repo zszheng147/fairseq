@@ -496,17 +496,15 @@ class Wav2Vec2Model(BaseFairseqModel):
             assert high > 1, f"{bsz,tsz,fsz}"
 
             if self.n_negatives > 0:
-                tszs = (
-                    buffered_arange(num)
-                    .unsqueeze(-1)
-                    .expand(-1, self.n_negatives)
-                    .flatten()
-                )
-
+                # tszs = (buffered_arange(num).unsqueeze(-1).expand(-1, self.n_negatives).flatten())
                 neg_idxs = torch.randint(
-                    low=0, high=high - 1, size=(bsz, self.n_negatives * num)
+                    low=0, high=high - 1, size=(bsz, self.n_negatives * num), device=y.device
                 )
-                neg_idxs[neg_idxs >= tszs] += 1
+                tszs = (torch.arange(num, dtype=neg_idxs.dtype, device=y.device).unsqueeze(-1).expand(-1, self.n_negatives).flatten())
+
+                # neg_idxs[neg_idxs >= tszs] += 1
+                bool_tensor = torch.tensor(neg_idxs >= tszs, dtype=neg_idxs.dtype, device=y.device)
+                neg_idxs += bool_tensor
 
             if self.cross_sample_negatives > 0:
                 tszs = (
@@ -524,7 +522,9 @@ class Wav2Vec2Model(BaseFairseqModel):
                 cross_neg_idxs[cross_neg_idxs >= tszs] += 1
 
         if self.n_negatives > 0:
-            neg_idxs = neg_idxs + (torch.arange(bsz).unsqueeze(1) * high)
+            plus = (torch.arange(bsz, device=y.device).unsqueeze(1) * high)
+            neg_idxs = neg_idxs + plus
+            # neg_idxs = neg_idxs + (torch.arange(bsz).unsqueeze(1) * high)
         else:
             neg_idxs = cross_neg_idxs
 

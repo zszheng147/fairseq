@@ -52,6 +52,8 @@ cp $source_dir/dict* $tgt_dir
 
 setopt shwordsplit
 
+FAIRSEQ_ROOT=/fairseq
+
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
   --save-dir $tgt_dir --checkpoint $model --layer $layer

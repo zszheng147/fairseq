@@ -42,6 +42,10 @@ echo $text_path
 echo $target_dir
 echo "min phone seen threshold is $min_phones"
 
+FAIRSEQ_ROOT=/fairseq
+KENLM_ROOT=/kenlm/build/bin
+KALDI_ROOT=/pykaldi-whl/kaldi
+
 mkdir -p $target_dir
 python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/normalize_and_filter_text.py --lang $lg --fasttext-model $lid_path < $text_path | grep -v '\-\-\-' >! $target_dir/lm.upper.lid.txt
 python $FAIRSEQ_ROOT/fairseq_cli/preprocess.py --dataset-impl mmap --trainpref $target_dir/lm.upper.lid.txt --only-source --destdir $target_dir --thresholdsrc 2 --padding-factor 1 --dict-only

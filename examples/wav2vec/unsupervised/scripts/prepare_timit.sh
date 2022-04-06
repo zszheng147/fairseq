@@ -9,6 +9,7 @@ tgt_dir=$2
 model=$3
 
 set -eu
+set -x
 
 setups="matched unmatched"
 splits="test valid train train_text"
@@ -25,14 +26,15 @@ paste -d' ' $tgt_dir/{all_sph.flist,all.uid} | \
   awk -v sph2wav=$sph2wav -v wav_dir=$wav_dir '{print sph2wav " -f wav " $1 " > " wav_dir "/" $2 ".wav"}' \
   > $tgt_dir/sph2wav.sh
 bash $tgt_dir/sph2wav.sh
-cat $tgt_dir/all.uid | awk -v wav_dir=$(pwd)/$wav_dir '{print $1" "wav_dir"/"$1".wav"}' | sort > $tgt_dir/all_wav.scp
+cat $tgt_dir/all.uid | awk -v wav_dir=$wav_dir '{print $1" "wav_dir"/"$1".wav"}' | sort > $tgt_dir/all_wav.scp
+
 cut -d' ' -f2 $tgt_dir/all_wav.scp | xargs -I{} soxi -s {} > $tgt_dir/all.dur
 paste -d' ' $tgt_dir/{all_wav.scp,all.dur} > $tgt_dir/all_wav_dur.scp
 rm $tgt_dir/{all.uid,all_sph.flist,sph2wav.sh}
 
 find $timit_root/{TRAIN,TEST} -iname "*.PHN" > $tgt_dir/all_phn60.flist
 while read line; do
-  if [ ! -f $line ]; then 
+  if [ ! -f $line ]; then
     >&2 echo "Cannot find transcription file '$line'" && exit 1;
   fi
   cut -f3 -d' ' "$line" | tr '\n' ' ' | perl -ape 's: *$:\n:;'
@@ -50,10 +52,10 @@ for s in $setups; do
     uid_path=config/timit_${s}/${x}.uid
     grep -w -f $uid_path $tgt_dir/all.phn | cut -d' ' -f2- > $tgt_dir/$s/$x.phn
     ln -sf $(realpath $tgt_dir/$s/$x.phn) $tgt_dir/$s/$x.wrd
-    
+
     echo "/" > $tgt_dir/$s/$x.tsv &&  grep -w -f $uid_path $tgt_dir/all_wav_dur.scp | cut -d' ' -f2- | sed 's# #\t#'  >> $tgt_dir/$s/$x.tsv
   done
-  
+
   for x in $splits; do
     cat $tgt_dir/$s/$x.phn
   done | tr ' ' '\n' | sort -u | awk '{print $1" "1}' > $tgt_dir/$s/dict.phn.txt
@@ -73,7 +75,7 @@ for s in $setups; do
   $KENLM_ROOT/build_binary $lm_dir/train_text_phn.03.arpa $lm_dir/train_text_phn.03.bin
   $KENLM_ROOT/lmplz -o 4 < $tgt_dir/$s/train_text.phn --discount_fallback >$lm_dir/train_text_phn.04.arpa
   $KENLM_ROOT/build_binary $lm_dir/train_text_phn.04.arpa $lm_dir/train_text_phn.04.bin
-  
+
   python $FAIRSEQ_ROOT/examples/speech_recognition/kaldi/kaldi_initializer.py kaldi_root=$KALDI_ROOT fst_dir=$fst_dir lm_arpa=$lm_dir/train_text_phn.03.arpa data_dir=$tgt_dir/$s in_labels=phn
 done
 echo "done preprocessing audio and text for wav2vec-U"
