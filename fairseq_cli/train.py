@@ -14,6 +14,8 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from fairseq.logging.progress_bar import clean_tb_writers
+
 # We need to setup root logger before importing any fairseq libraries.
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -203,6 +205,7 @@ def main(cfg: FairseqConfig) -> None:
         )
     train_meter.stop()
     logger.info("done training in {:.1f} seconds".format(train_meter.sum))
+    clear_tb_writers()
 
     # ioPath implementation to wait for all asynchronous file writes to complete.
     if cfg.checkpoint.write_checkpoints_asynchronously:
