@@ -1,4 +1,4 @@
-#!/usr/bin/env zsh
+	#!/usr/bin/env zsh
 # Copyright (c) Facebook, Inc. and its affiliates.
 #
 # This source code is licensed under the MIT license found in the
@@ -51,8 +51,6 @@ cp $source_dir/*.phn $tgt_dir
 cp $source_dir/dict* $tgt_dir
 
 setopt shwordsplit
-
-FAIRSEQ_ROOT=/fairseq
 
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \

@@ -150,7 +150,7 @@ class UnpairedAudioText(FairseqTask):
         Args:
             cfg (AudioPretrainingConfig): configuration of this task
         """
-
+        #; 此处读入字典数据
         dict_path = os.path.join(cfg.text_data, "dict.txt")
         if os.path.exists(dict_path):
             target_dictionary = Dictionary.load(dict_path)

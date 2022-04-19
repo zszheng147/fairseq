@@ -301,12 +301,13 @@ class Generator(nn.Module):
                 padding=padding,
                 bias=cfg.generator_bias,
             ),
-            TransposeLast(),
+            TransposeLast(), #; 交换矩阵最后两个维度
         )
 
     def forward(self, dense_x, tokens, dense_padding_mask):
         dense_x = self.dropout(dense_x)
-
+        # 这里dense_x传入的是features参数
+        
         dense_x = self.proj(dense_x)
         if self.stride > 1:
             dense_padding_mask = dense_padding_mask[:, :: self.stride]
@@ -532,7 +533,7 @@ class Wav2vec_U(BaseFairseqModel):
     ):
         if segment:
             features, padding_mask = self.segmenter.pre_segment(features, padding_mask)
-
+            # For timit [160 * 7 * 512] ; [160 * 7]
         orig_size = features.size(0) * features.size(1) - padding_mask.sum()
 
         gen_result = self.generator(features, random_label, padding_mask)

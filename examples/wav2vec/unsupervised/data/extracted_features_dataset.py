@@ -53,6 +53,7 @@ class ExtractedFeaturesDataset(FairseqDataset):
 
         if not os.path.exists(path + f".{labels}"):
             labels = None
+        #; label相应的值： train的时候为None -- valid 对应为 phn
 
         with open(data_path + ".lengths", "r") as len_f, open(
             path + f".{labels}", "r"
@@ -67,6 +68,7 @@ class ExtractedFeaturesDataset(FairseqDataset):
                     self.offsets.append(offset)
                     if lbl is not None:
                         self.labels.append(lbl)
+                    #; 这里目的是把pca后的特征数量大于等于3对应的提取出来
                 offset += length
 
         self.sizes = np.asarray(self.sizes)
