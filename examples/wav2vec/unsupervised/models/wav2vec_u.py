@@ -305,10 +305,18 @@ class Generator(nn.Module):
         )
 
     def forward(self, dense_x, tokens, dense_padding_mask):
+        #; dense_x --> features   [160, 90, 512] [bsz * feats * Channel]
+        #; tokens --> random_labels [160, 67] 67是本批样本最大的特征数量
+        #; dense_padding_mask --> padding_mask [160, 90]
         dense_x = self.dropout(dense_x)
-        # 这里dense_x传入的是features参数
-        
+
         dense_x = self.proj(dense_x)
+        #; (0): TransposeLast()   
+        #; (1): Conv1d(512, 43, kernel_size=(4,), stride=(1,), padding=(2,), bias=False)
+        #; (2): TransposeLast()
+        #; dense_x  [160, 91, 43]
+        #; Conv1d: (dim + 2*pad - kernel_size) / stride + 1
+
         if self.stride > 1:
             dense_padding_mask = dense_padding_mask[:, :: self.stride]
 
@@ -325,13 +333,15 @@ class Generator(nn.Module):
                 new_padding = dense_padding_mask[:, :diff]
 
             dense_padding_mask = new_padding
-
+        #; 这里操作的目的是让dense_padding_mask 的维度与dense_x相同
+        #; 这个操作是必要的，否则padding位置无法对应
         result = {}
 
         token_x = None
         if tokens is not None:
             token_x = dense_x.new_zeros(tokens.numel(), self.output_dim)
             token_x.scatter_(1, tokens.view(-1, 1).long(), 1)
+            #; 这一步将token_x变成one-hot编码
             token_x = token_x.view(tokens.shape + (self.output_dim,))
 
         result["dense_x"] = dense_x
@@ -533,11 +543,15 @@ class Wav2vec_U(BaseFairseqModel):
     ):
         if segment:
             features, padding_mask = self.segmenter.pre_segment(features, padding_mask)
-            # For timit [160 * 7 * 512] ; [160 * 7]
+            #; For timit [160 * 90 * 512] ; [160 * 90]
+            #; 为什么需要padding_mask??? 
+
         orig_size = features.size(0) * features.size(1) - padding_mask.sum()
+        #; 这个变量反应的是未padding的原始矩阵的有效特征数量
 
         gen_result = self.generator(features, random_label, padding_mask)
-
+        #; 此处random_label对应的是phn(idx)， 数值1表示<sIL>
+        
         orig_dense_x, token_x = gen_result["dense_x"], gen_result["token_x"]
         orig_dense_padding_mask = gen_result["dense_padding_mask"]
 

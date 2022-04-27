@@ -51,13 +51,14 @@ def main():
             offset += length
 
     clusters = []
+    #; cluster_path ---> feat/CLUS128/train.src
     with open(cluster_path, "r") as cf:
         for line in cf:
             line = line.rstrip()
             items = line.split()
             items = list(map(int, items))
             clusters.append(items)
-
+    #; 这个clusters到底是怎么回事？
     os.makedirs(args.save_dir, exist_ok=True)
     save_path = osp.join(args.save_dir, args.split)
 
