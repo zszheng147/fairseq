@@ -306,8 +306,8 @@ class Generator(nn.Module):
 
     def forward(self, dense_x, tokens, dense_padding_mask):
         #; dense_x --> features   [160, 90, 512] [bsz * feats * Channel]
-        #; tokens --> random_labels [160, 67] 67是本批样本最大的特征数量
-        #; dense_padding_mask --> padding_mask [160, 90]
+        #; tokens --> random_labels [160, 67] 67是本批样本最大的特征数量 #? 67这个到底是啥
+        #; dense_padding_mask --> padding_mask [160, 90] 
         dense_x = self.dropout(dense_x)
 
         dense_x = self.proj(dense_x)
@@ -503,22 +503,23 @@ class Wav2vec_U(BaseFairseqModel):
 
     def normalize(self, dense_x):
 
-        bsz, tsz, csz = dense_x.shape
+        bsz, tsz, csz = dense_x.shape #; 160 * 206(feats) * 46(phn)
 
         if dense_x.numel() == 0:
             raise Exception(dense_x.shape)
-        _, k = dense_x.max(-1)
+        _, k = dense_x.max(-1) #; 此处k返回的某列最大值的索引
         hard_x = (
             dense_x.new_zeros(bsz * tsz, csz)
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(-1, csz)
-        )
-        hard_probs = torch.mean(hard_x.float(), dim=0)
+        ) #; 前面的操作  soft_x --> hard_x   one-hot
+        hard_probs = torch.mean(hard_x.float(), dim=0) #; 对每一列求均值, phn 个结果
         code_perplexity = torch.exp(
             -torch.sum(hard_probs * torch.log(hard_probs + 1e-7), dim=-1)
-        )
+        ) #;    -sum(x * log(x))   代码复杂度？ 
 
         avg_probs = torch.softmax(dense_x.reshape(-1, csz).float(), dim=-1).mean(dim=0)
+        #; soft_prob
         prob_perplexity = torch.exp(
             -torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1)
         )
@@ -558,7 +559,7 @@ class Wav2vec_U(BaseFairseqModel):
         if segment:
             dense_x, dense_padding_mask = self.segmenter.logit_segment(
                 orig_dense_x, orig_dense_padding_mask
-            )
+            )   #? 这里干了什么
         else:
             dense_x = orig_dense_x
             dense_padding_mask = orig_dense_padding_mask
@@ -569,7 +570,7 @@ class Wav2vec_U(BaseFairseqModel):
 
         if not (self.no_softmax and dense_x_only):
             dense_x, code_perplexity, prob_perplexity = self.normalize(dense_logits)
-
+        #; code是hard prob是soft
         if dense_x_only or self.discriminator is None:
             return {
                 "logits": dense_x,
@@ -594,7 +595,7 @@ class Wav2vec_U(BaseFairseqModel):
         smoothness_loss = None
         code_pen = None
 
-        if d_step:
+        if d_step: #; 奇数对应的是 dis; 偶数对应的是gen
             loss_dense = F.binary_cross_entropy_with_logits(
                 dense_y,
                 dense_y.new_ones(dense_y.shape) - fake_smooth,
@@ -610,7 +611,7 @@ class Wav2vec_U(BaseFairseqModel):
                 grad_pen = grad_pen.sum() * self.gradient_penalty
             else:
                 grad_pen = None
-        else:
+        else: #; generator 计算loss过程
             grad_pen = None
             loss_token = None
             loss_dense = F.binary_cross_entropy_with_logits(
@@ -618,11 +619,11 @@ class Wav2vec_U(BaseFairseqModel):
                 dense_y.new_zeros(dense_y.shape) + fake_smooth,
                 reduction="sum",
             )
-            num_vars = dense_x.size(-1)
+            num_vars = dense_x.size(-1) #; number of phn
             if prob_perplexity is not None:
-                code_pen = (num_vars - prob_perplexity) / num_vars
-                code_pen = code_pen * sample_size * self.code_penalty
-
+                code_pen = (num_vars - prob_perplexity) / num_vars #; 相当于每个phn对应的
+                code_pen = code_pen * sample_size * self.code_penalty 
+                #; phn 多样性的一个惩罚项
             if self.smoothness_weight > 0:
                 smoothness_loss = F.mse_loss(
                     dense_logits[:, :-1], dense_logits[:, 1:], reduction="none"
@@ -634,13 +635,13 @@ class Wav2vec_U(BaseFairseqModel):
 
         result = {
             "losses": {
-                "grad_pen": grad_pen,
-                "code_pen": code_pen,
-                "smoothness": smoothness_loss,
+                "grad_pen": grad_pen, 
+                "code_pen": code_pen, #; phn 多样性
+                "smoothness": smoothness_loss, #; 平滑度
             },
             "temp": self.curr_temp,
-            "code_ppl": code_perplexity,
-            "prob_ppl": prob_perplexity,
+            "code_ppl": code_perplexity, #; hard prob
+            "prob_ppl": prob_perplexity, #; soft prob
             "d_steps": int(d_step),
             "sample_size": sample_size,
         }

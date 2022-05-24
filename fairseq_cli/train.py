@@ -14,7 +14,7 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from fairseq.logging.progress_bar import clean_tb_writers
+from fairseq.logging.progress_bar import clear_tb_writers
 
 # We need to setup root logger before importing any fairseq libraries.
 logging.basicConfig(
@@ -133,6 +133,7 @@ def main(cfg: FairseqConfig) -> None:
     else:
         for valid_sub_split in cfg.dataset.valid_subset.split(","):
             task.load_dataset(valid_sub_split, combine=False, epoch=1)
+            #; 此处加载valid数据集
 
     # (optionally) Configure quantization
     if cfg.common.quantization_config_path is not None:
@@ -168,6 +169,7 @@ def main(cfg: FairseqConfig) -> None:
         trainer,
         # don't cache epoch iterators for sharded datasets
         disable_iterator_cache=task.has_sharded_data("train"),
+        #; 在检查是否有ckpt的时候读入train的数据
     )
     if cfg.common.tpu:
         import torch_xla.core.xla_model as xm

@@ -173,14 +173,14 @@ class UnpairedAudioText(FairseqTask):
             dense_x_only=True,
         )
 
-        dense_x = res["logits"]
+        dense_x = res["logits"] #; 这个是features
         padding_mask = res["padding_mask"]
 
         word_scores = None
         if self.compute_word_score is not None:
             word_scores = self.compute_word_score(dense_x.cpu(), padding_mask.cpu())
 
-        z = dense_x.argmax(-1)
+        z = dense_x.argmax(-1) #; 最后一维取最大的idx [45, 4, 45, 8, ...]
         z[padding_mask] = self.target_dictionary.pad()
 
         vocab_seen = torch.zeros(self.num_symbols, dtype=torch.bool)
@@ -199,16 +199,16 @@ class UnpairedAudioText(FairseqTask):
             )
         ):
 
-            if t is not None:
-                t = t[(t >= self.target_dictionary.nspecial)]
+            if t is not None:   #; t 是 target
+                t = t[(t >= self.target_dictionary.nspecial)] #; 去除特殊字符 比如 <pad> <s> ...
             x = x[
                 (x >= self.target_dictionary.nspecial)
                 & (x < (self.num_symbols + self.target_dictionary.nspecial))
-            ]
-            if self.sil_id >= 0:
+            ]   #; 去除特殊字符以及不在范围内的字符所对应的列向量 
+            if self.sil_id >= 0: #; 去除 <SIL> 对应的列向量
                 x = x[x != self.sil_id]
 
-            vocab_seen[x - self.target_dictionary.nspecial] = True
+            vocab_seen[x - self.target_dictionary.nspecial] = True #; 反映预测用了哪些phn
 
             pred_units_arr = x
             if self.cfg.ctc_eval:
