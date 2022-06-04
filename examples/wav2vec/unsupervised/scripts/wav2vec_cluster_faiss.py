@@ -147,7 +147,10 @@ def main():
         del iterator
         del generator
 
-        feats = np.concatenate(feats)
+        feats = np.concatenate(feats[:int(len(feats)/2)])
+        #; 这里用一半的数据量 50h
+        #; feats = torch.cat(feats, dim=0)
+        #; 这一步太吃CPU 容易OOM
 
         print(feats.shape)
 
