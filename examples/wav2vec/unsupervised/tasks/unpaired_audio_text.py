@@ -54,6 +54,10 @@ class UnpairedAudioTextConfig(FairseqDataclass):
         default=None,
         metadata={"help": "extension of the label file to load, used for fine-tuning"},
     )
+    aux_target_postfix: Optional[str] = field(
+        default=None,
+        metadata={"help": "auxaliry target filename extension"},
+    )
     unfiltered: bool = field(
         default=False, metadata={"help": "load data with _unfiltered suffix"}
     )
@@ -150,7 +154,7 @@ class UnpairedAudioText(FairseqTask):
         Args:
             cfg (AudioPretrainingConfig): configuration of this task
         """
-        #; 此处读入字典数据
+        # ; 此处读入字典数据
         dict_path = os.path.join(cfg.text_data, "dict.txt")
         if os.path.exists(dict_path):
             target_dictionary = Dictionary.load(dict_path)
@@ -173,14 +177,14 @@ class UnpairedAudioText(FairseqTask):
             dense_x_only=True,
         )
 
-        dense_x = res["logits"] #; 这个是features
+        dense_x = res["logits"]  # ; 这个是features
         padding_mask = res["padding_mask"]
 
         word_scores = None
         if self.compute_word_score is not None:
             word_scores = self.compute_word_score(dense_x.cpu(), padding_mask.cpu())
 
-        z = dense_x.argmax(-1) #; 最后一维取最大的idx [45, 4, 45, 8, ...]
+        z = dense_x.argmax(-1)  # ; 最后一维取最大的idx [45, 4, 45, 8, ...]
         z[padding_mask] = self.target_dictionary.pad()
 
         vocab_seen = torch.zeros(self.num_symbols, dtype=torch.bool)
@@ -199,16 +203,16 @@ class UnpairedAudioText(FairseqTask):
             )
         ):
 
-            if t is not None:   #; t 是 target
-                t = t[(t >= self.target_dictionary.nspecial)] #; 去除特殊字符 比如 <pad> <s> ...
+            if t is not None:
+                t = t[(t >= self.target_dictionary.nspecial)]
             x = x[
                 (x >= self.target_dictionary.nspecial)
                 & (x < (self.num_symbols + self.target_dictionary.nspecial))
-            ]   #; 去除特殊字符以及不在范围内的字符所对应的列向量 
-            if self.sil_id >= 0: #; 去除 <SIL> 对应的列向量
+            ]
+            if self.sil_id >= 0:
                 x = x[x != self.sil_id]
 
-            vocab_seen[x - self.target_dictionary.nspecial] = True #; 反映预测用了哪些phn
+            vocab_seen[x - self.target_dictionary.nspecial] = True
 
             pred_units_arr = x
             if self.cfg.ctc_eval:
@@ -302,14 +306,17 @@ class UnpairedAudioText(FairseqTask):
             label_dict=self.target_dictionary,
             shuffle=getattr(task_cfg, "shuffle", True),
             sort_by_length=task_cfg.sort_by_length,
-        )
+            aux_target_postfix=task_cfg.aux_target_postfix,
+        ) #; 这里是得到每个audio的特征数量（全部数据），并未读取npy文件
 
         logger.info(f"split {split} has unpaired text? {has_unpaired_text}")
         if has_unpaired_text:
+            logger.info(f"Loading text data starts!")
             text_dataset = data_utils.load_indexed_dataset(
                 os.path.join(self.cfg.text_data, split), self.target_dictionary
             )
             text_dataset = StripTokenDataset(text_dataset, self.target_dictionary.eos())
+            
             self.datasets[split] = RandomInputDataset(
                 self.datasets[split],
                 text_dataset,
