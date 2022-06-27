@@ -270,6 +270,8 @@ class Discriminator(nn.Module):
     def forward(self, x, padding_mask):
         x = x.transpose(1, 2)  # BTC -> BCT
         x = self.net(x)
+        #; x = self.net(x.half()) 
+        #; if you'd like to use fp16
         x = x.transpose(1, 2)
         x_sz = x.size(1)
         if padding_mask is not None and padding_mask.any() and padding_mask.dim() > 1:
