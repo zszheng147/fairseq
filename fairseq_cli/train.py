@@ -14,8 +14,6 @@ import os
 import sys
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from fairseq.logging.progress_bar import clear_tb_writers
-
 # We need to setup root logger before importing any fairseq libraries.
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -191,7 +189,10 @@ def main(cfg: FairseqConfig) -> None:
             break
 
         # train for one epoch
+        logger.info(f"start training for epoch {epoch_itr.epoch}")
         valid_losses, should_stop = train(cfg, trainer, task, epoch_itr)
+        logger.info(f"Finish training for epoch {epoch_itr.epoch}")
+
         if should_stop:
             break
 
@@ -207,7 +208,6 @@ def main(cfg: FairseqConfig) -> None:
         )
     train_meter.stop()
     logger.info("done training in {:.1f} seconds".format(train_meter.sum))
-    clear_tb_writers()
 
     # ioPath implementation to wait for all asynchronous file writes to complete.
     if cfg.checkpoint.write_checkpoints_asynchronously:
@@ -218,7 +218,7 @@ def main(cfg: FairseqConfig) -> None:
         PathManager.async_close()
         logger.info("ioPath PathManager finished waiting.")
 
-
+#?
 def should_stop_early(cfg: DictConfig, valid_loss: float) -> bool:
     # skip check if no validation was done in the current epoch
     if valid_loss is None:
@@ -303,10 +303,22 @@ def train(
     should_stop = False
     num_updates = trainer.get_num_updates()
     logger.info("Start iterating over samples")
-    for i, samples in enumerate(progress):
+
+    i = 0
+    progress_iter = iter(progress)
+    while True:
+    # for i, samples in enumerate(progress):
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
         ):
+            try:
+                metrics.log_start_time("iter_wall", priority=800, round=2)
+                samples = next(progress_iter)
+                metrics.log_stop_time("iter_wall")
+                i += 1
+            except StopIteration:
+                break
+
             log_output = trainer.train_step(samples)
 
         if log_output is not None:  # not OOM, overflow, ...
