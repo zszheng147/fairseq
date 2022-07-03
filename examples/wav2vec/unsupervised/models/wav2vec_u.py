@@ -269,6 +269,7 @@ class Discriminator(nn.Module):
 
     def forward(self, x, padding_mask):
         x = x.transpose(1, 2)  # BTC -> BCT
+        # with torch.cuda.amp.autocast():
         x = self.net(x)
         #; x = self.net(x.half()) 
         #; if you'd like to use fp16
