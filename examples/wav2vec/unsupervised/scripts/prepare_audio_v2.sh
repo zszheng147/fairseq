@@ -4,9 +4,9 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-source_dir=$1
+source_dir=$1     #; tsv path
 tgt_dir=$2
-model=$3
+model=$3          #; model path
 
 if [ -z "$4" ]
   then
