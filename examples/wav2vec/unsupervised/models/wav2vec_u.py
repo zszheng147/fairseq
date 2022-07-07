@@ -144,7 +144,7 @@ class UniformRandomSegmenter(Segmenter):
 
 
 class JoinSegmenter(Segmenter):
-    def logit_segment(self, logits, padding_mask):
+    def logit_segment(self, logits, padding_mask): #; features   mask
         preds = logits.argmax(dim=-1)
 
         if padding_mask.any():
@@ -163,7 +163,7 @@ class JoinSegmenter(Segmenter):
         new_pad = padding_mask.new_zeros(bsz, new_tsz)
 
         for b in range(bsz):
-            u, idx, c = uniques[b]
+            u, idx, c = uniques[b] #; array removing duplicate; idx; count 
             keep = u != -1
 
             if self.cfg.remove_zeros:
@@ -174,19 +174,19 @@ class JoinSegmenter(Segmenter):
                 u[1:] = c.cumsum(0)[:-1]
                 m = c > 1
                 r = torch.rand(m.sum())
-                o = (c[m] * r).long()
+                o = (c[m] * r).long() #; maximum integer < num
                 u[m] += o
-                new_logits[b, : u.numel()] = logits[b, u]
+                new_logits[b, : u.numel()] = logits[b, u] #; function: sample in duplicated place
             else:
                 new_logits[b].index_add_(
                     dim=0, index=idx.to(new_logits.device), source=logits[b]
                 )
-                new_logits[b, : c.numel()] /= c.unsqueeze(-1).to(new_logits.device)
+                new_logits[b, : c.numel()] /= c.unsqueeze(-1).to(new_logits.device) 
 
             new_sz = keep.sum()
             if not keep.all():
                 kept_logits = new_logits[b, : c.numel()][keep]
-                new_logits[b, :new_sz] = kept_logits
+                new_logits[b, :new_sz] = kept_logits #; remove idx = -1
 
             if new_sz < new_tsz:
                 pad = new_tsz - new_sz
@@ -231,9 +231,9 @@ class Discriminator(nn.Module):
                 padding=p,
                 dilation=dilation if has_dilation else 1,
             )
-            if cfg.discriminator_spectral_norm:
+            if cfg.discriminator_spectral_norm: #; default False
                 conv = nn.utils.spectral_norm(conv)
-            elif cfg.discriminator_weight_norm:
+            elif cfg.discriminator_weight_norm: #; default False
                 conv = nn.utils.weight_norm(conv)
             return conv
 
@@ -250,15 +250,15 @@ class Discriminator(nn.Module):
             SamePad(kernel_size=kernel, causal=cfg.discriminator_causal),
         ]
 
-        if cfg.discriminator_linear_emb:
+        if cfg.discriminator_linear_emb: #; default is False
             emb_net = [make_conv(dim, inner_dim, 1)]
         else:
             emb_net = [
-                make_conv(dim, inner_dim, kernel, padding),
+                make_conv(dim, inner_dim, kernel, padding), #; Conv1d(43, 384, kernel_size=(8,), stride=(1,), padding=(7,))
                 SamePad(kernel_size=kernel, causal=cfg.discriminator_causal),
             ]
 
-        if cfg.discriminator_act_after_linear:
+        if cfg.discriminator_act_after_linear:  #; default False
             emb_net.append(nn.GELU())
 
         self.net = nn.Sequential(
@@ -278,7 +278,7 @@ class Discriminator(nn.Module):
         if padding_mask is not None and padding_mask.any() and padding_mask.dim() > 1:
             padding_mask = padding_mask[:, : x.size(1)]
             x[padding_mask] = float("-inf") if self.max_pool else 0
-            x_sz = x_sz - padding_mask.sum(dim=-1)
+            x_sz = x_sz - padding_mask.sum(dim=-1) #; 统计非mask 的数量
         x = x.squeeze(-1)
         if self.max_pool:
             x, _ = x.max(dim=-1)
@@ -305,8 +305,8 @@ class Generator(nn.Module):
         self.proj = nn.Sequential(
             TransposeLast(),
             nn.Conv1d(
-                input_dim,
-                output_dim,
+                input_dim,       #; input_dim = 1024
+                output_dim,      #; output_dim = 43
                 kernel_size=cfg.generator_kernel,
                 stride=cfg.generator_stride,
                 dilation=cfg.generator_dilation,
@@ -317,7 +317,7 @@ class Generator(nn.Module):
         )
 
         if self.batch_norm:
-            self.bn = nn.BatchNorm1d(input_dim)
+            self.bn = nn.BatchNorm1d(input_dim)         #; input_dim = 1024
             self.bn.weight.data.fill_(cfg.generator_batch_norm)
         if self.residual:
             self.in_proj = nn.Linear(input_dim, input_dim)
@@ -333,19 +333,16 @@ class Generator(nn.Module):
             result["inter_x"] = inter_x
 
         dense_x = self.dropout(dense_x)
-        # ; dense_x --> features   [160, 90, 512] [bsz * feats * Channel]
-        # ; tokens --> random_labels [160, 67] 67是本批样本最大的特征数量 #? 67这个到底是啥
-        # ; dense_padding_mask --> padding_mask [160, 90]
 
         dense_x = self.proj(dense_x)
         # ; (0): TransposeLast()
-        # ; (1): Conv1d(512, 43, kernel_size=(4,), stride=(1,), padding=(2,), bias=False)
+        # ; (1): Conv1d(1024, 43, kernel_size=(9,), stride=(3,), padding=(4,), bias=False)
         # ; (2): TransposeLast()
-        # ; dense_x  [160, 91, 43]
+        # ; 
         # ; Conv1d: (dim + 2*pad - kernel_size) / stride + 1
 
         if self.stride > 1:
-            dense_padding_mask = dense_padding_mask[:, :: self.stride]
+            dense_padding_mask = dense_padding_mask[:, :: self.stride] #; sample every interval = 3
 
         if dense_padding_mask.size(1) != dense_x.size(1):
             new_padding = dense_padding_mask.new_zeros(dense_x.shape[:-1])
@@ -376,7 +373,7 @@ class Generator(nn.Module):
 
     def bn_padded_data(self, feature, padding_mask):
         normed_feature = feature.clone()
-        normed_feature[~padding_mask] = self.bn(
+        normed_feature[~padding_mask] = self.bn(            #; reverse the sign of padding_mask
             feature[~padding_mask].unsqueeze(-1)
         ).squeeze(-1)
         return normed_feature
@@ -551,7 +548,7 @@ class Wav2vec_U(BaseFairseqModel):
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(-1, csz)
         )  # ; 前面的操作  soft_x --> hard_x   one-hot
-        hard_probs = torch.mean(hard_x.float(), dim=0)  # ; 对每一列求均值, phn 个结果
+        hard_probs = torch.mean(hard_x.float(), dim=0)  # ; 对每一列求均值, phn 个结果 == 在这个batch里这个phn出现的次数
         code_perplexity = torch.exp(
             -torch.sum(hard_probs * torch.log(hard_probs + 1e-7), dim=-1)
         )
@@ -561,7 +558,7 @@ class Wav2vec_U(BaseFairseqModel):
         prob_perplexity = torch.exp(
             -torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1)
         )  # ;    -sum(x * log(x))   代码复杂度？
-
+        #; soft hard 计算方法相同
         if not self.no_softmax:
             if self.training and self.gumbel:
                 dense_x = F.gumbel_softmax(
@@ -590,7 +587,7 @@ class Wav2vec_U(BaseFairseqModel):
         # ; 这个变量反应的是未padding的原始矩阵的有效特征数量
 
         gen_result = self.generator(features, random_label, padding_mask)
-        # ; 此处random_label对应的是phn(idx)， 数值1表示<sIL>
+        # ; 此处random_label对应的是phn(idx)， 数值1表示<sIL>       为什么传入ranom_label(tokens) --> for align
 
         orig_dense_x, token_x = gen_result["dense_x"], gen_result["token_x"]
         orig_dense_padding_mask = gen_result["dense_padding_mask"]
@@ -598,7 +595,7 @@ class Wav2vec_U(BaseFairseqModel):
         if segment:
             dense_x, dense_padding_mask = self.segmenter.logit_segment(
                 orig_dense_x, orig_dense_padding_mask
-            )
+            ) #; sample duplicated segment ; renew each matrix
         else:
             dense_x = orig_dense_x
             dense_padding_mask = orig_dense_padding_mask
@@ -635,7 +632,7 @@ class Wav2vec_U(BaseFairseqModel):
         code_pen = None
         mmi_loss = None
 
-        if d_step:  # ; 奇数对应的是 dis; 偶数对应的是gen
+        if d_step:  #; discriminator [update == 1 3 5 7 9 ...]
             loss_dense = F.binary_cross_entropy_with_logits(
                 dense_y,
                 dense_y.new_ones(dense_y.shape) - fake_smooth,
@@ -651,7 +648,7 @@ class Wav2vec_U(BaseFairseqModel):
                 grad_pen = grad_pen.sum() * self.gradient_penalty
             else:
                 grad_pen = None
-        else:
+        else:   #; generator [update == 0 2 4 6 ...]
             grad_pen = None
             loss_token = None
             loss_dense = F.binary_cross_entropy_with_logits(
@@ -661,7 +658,7 @@ class Wav2vec_U(BaseFairseqModel):
             )
             num_vars = dense_x.size(-1)
             if prob_perplexity is not None:
-                code_pen = (num_vars - prob_perplexity) / num_vars
+                code_pen = (num_vars - prob_perplexity) / num_vars #; hard 
                 code_pen = code_pen * sample_size * self.code_penalty
 
             if self.smoothness_weight > 0:
