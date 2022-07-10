@@ -298,6 +298,7 @@ class FairseqTask(object):
             max_sentences=max_sentences,
             required_batch_size_multiple=required_batch_size_multiple,
         )
+        #; split dataset by bsz 
 
         # return a reusable, sharded iterator
         epoch_iter = iterators.EpochBatchIterator(

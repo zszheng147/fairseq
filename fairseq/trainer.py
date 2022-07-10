@@ -691,6 +691,9 @@ class Trainer(object):
                 data_selector=data_selector,
                 tpu=self.tpu,
             )
+        
+        #; 读取特征的数据
+        logger.info(f"Start loading audio features for epoch {epoch}")        
         batch_iterator = self.task.get_batch_iterator(
             dataset=self.task.dataset(self.cfg.dataset.train_subset),
             max_tokens=self.cfg.dataset.max_tokens,
@@ -715,6 +718,7 @@ class Trainer(object):
             grouped_shuffling=self.cfg.dataset.grouped_shuffling,
             update_epoch_batch_itr=self.cfg.dataset.update_epoch_batch_itr,
         )
+        logger.info(f"Finish loading audio features for epoch {epoch}")
         self.reset_dummy_batch(batch_iterator.first_batch)
         return batch_iterator
 

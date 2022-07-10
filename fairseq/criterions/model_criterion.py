@@ -49,6 +49,7 @@ class ModelCriterion(FairseqCriterion):
         self.log_keys = log_keys
 
     def forward(self, model, sample, reduce=True):
+        # with torch.cuda.amp.autocast():
         net_output = model(**sample["net_input"])
 
         scaled_losses = {}
