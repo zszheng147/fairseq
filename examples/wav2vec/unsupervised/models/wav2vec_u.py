@@ -407,7 +407,7 @@ class Wav2vec_U(BaseFairseqModel):
             real_data = real_data[:b_size, :t_size]
             fake_data = fake_data[:b_size, :t_size]
 
-        alpha = torch.rand(real_data.size(0), 1, 1)
+        alpha = torch.rand(real_data.size(0), 1, 1, dtype=torch.float16)
         alpha = alpha.expand(real_data.size())
         alpha = alpha.to(real_data.device)
 
