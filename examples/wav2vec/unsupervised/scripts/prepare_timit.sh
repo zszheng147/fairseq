@@ -80,6 +80,6 @@ for s in $setups; do
   $KENLM_ROOT/build_binary $lm_dir/train_text_phn.04.arpa $lm_dir/train_text_phn.04.bin
 
   python $FAIRSEQ_ROOT/examples/speech_recognition/kaldi/kaldi_initializer.py kaldi_root=$KALDI_ROOT fst_dir=$fst_dir \
-     lm_arpa=$lm_dir/train_text_phn.03.arpa data_dir=$tgt_dir/$s in_labels=phn
+     lm_arpa=$lm_dir/train_text_phn.04.arpa data_dir=$tgt_dir/$s in_labels=phn
 done
 echo "done preprocessing audio and text for wav2vec-U"
