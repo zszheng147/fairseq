@@ -156,7 +156,7 @@ class JoinSegmenter(Segmenter):
         for p in preds:
             uniques.append(
                 p.cpu().unique_consecutive(return_inverse=True, return_counts=True)
-            )
+            ) #; 去掉相邻一样的帧
 
         new_tsz = max(u[0].numel() for u in uniques)
         new_logits = logits.new_zeros(bsz, new_tsz, csz)
@@ -325,11 +325,11 @@ class Generator(nn.Module):
     def forward(self, dense_x, tokens, dense_padding_mask):
         result = {}
 
-        if self.batch_norm:
+        if self.batch_norm: #; 此处对于输入的feature做了一次batchnorm
             dense_x = self.bn_padded_data(dense_x, dense_padding_mask)
         if self.residual:
-            inter_x = self.in_proj(self.dropout(dense_x))
-            dense_x = dense_x + inter_x
+            inter_x = self.in_proj(self.dropout(dense_x)) #; 当作aux的输入
+            dense_x = dense_x + inter_x #; 当作CNN的输入
             result["inter_x"] = inter_x
 
         dense_x = self.dropout(dense_x)
@@ -543,7 +543,7 @@ class Wav2vec_U(BaseFairseqModel):
         if dense_x.numel() == 0:
             raise Exception(dense_x.shape)
         _, k = dense_x.max(-1)  # ; 此处k返回的某列最大值的索引
-        hard_x = (
+        hard_x = (                      #; 把logits变成 one-hot表示
             dense_x.new_zeros(bsz * tsz, csz)
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(-1, csz)
@@ -553,7 +553,7 @@ class Wav2vec_U(BaseFairseqModel):
             -torch.sum(hard_probs * torch.log(hard_probs + 1e-7), dim=-1)
         )
 
-        avg_probs = torch.softmax(dense_x.reshape(-1, csz).float(), dim=-1).mean(dim=0)
+        avg_probs = torch.softmax(dense_x.reshape(-1, csz).float(), dim=-1).mean(dim=0) #; 
         # ; soft_prob
         prob_perplexity = torch.exp(
             -torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1)
@@ -581,7 +581,7 @@ class Wav2vec_U(BaseFairseqModel):
         if segment:
             features, padding_mask = self.segmenter.pre_segment(features, padding_mask)
             # ; For timit [160 * 90 * 512] ; [160 * 90]
-            # ; 为什么需要padding_mask???
+
 
         orig_size = features.size(0) * features.size(1) - padding_mask.sum()
         # ; 这个变量反应的是未padding的原始矩阵的有效特征数量
@@ -606,7 +606,7 @@ class Wav2vec_U(BaseFairseqModel):
 
         if not (self.no_softmax and dense_x_only):
             dense_x, code_perplexity, prob_perplexity = self.normalize(dense_logits)
-
+            #; dense_x = softmax(dense_logits) 
         if dense_x_only or self.discriminator is None:
             return {
                 "logits": dense_x,
@@ -633,6 +633,7 @@ class Wav2vec_U(BaseFairseqModel):
         mmi_loss = None
 
         if d_step:  #; discriminator [update == 1 3 5 7 9 ...]
+            #; 0 is real while 1 is fake
             loss_dense = F.binary_cross_entropy_with_logits(
                 dense_y,
                 dense_y.new_ones(dense_y.shape) - fake_smooth,
@@ -658,8 +659,8 @@ class Wav2vec_U(BaseFairseqModel):
             )
             num_vars = dense_x.size(-1)
             if prob_perplexity is not None:
-                code_pen = (num_vars - prob_perplexity) / num_vars #; hard 
-                code_pen = code_pen * sample_size * self.code_penalty
+                code_pen = (num_vars - prob_perplexity) / num_vars 
+                code_pen = code_pen * sample_size * self.code_penalty   #?
 
             if self.smoothness_weight > 0:
                 smoothness_loss = F.mse_loss(

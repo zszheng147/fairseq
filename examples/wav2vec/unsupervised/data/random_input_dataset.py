@@ -12,8 +12,8 @@ from fairseq.data import BaseWrapperDataset, data_utils
 class RandomInputDataset(BaseWrapperDataset):
     def __init__(
         self,
-        dataset,
-        random_input_dataset,
+        dataset, #; audio dataset 
+        random_input_dataset, #; text dataset
         input_key_path: List[str],
         add_to_input,
         pad_idx,

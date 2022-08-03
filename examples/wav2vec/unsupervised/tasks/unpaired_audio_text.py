@@ -224,6 +224,7 @@ class UnpairedAudioText(FairseqTask):
                     logger.info(f"REF: {self.target_dictionary.string(t)}")
                 logger.info(f"HYP: {self.target_dictionary.string(pred_units_arr)}")
 
+                #; add LM model
                 if self.kenlm is not None:
                     if t is not None:
                         ref_lm_s = self.compute_lm_score(
@@ -307,7 +308,7 @@ class UnpairedAudioText(FairseqTask):
             shuffle=getattr(task_cfg, "shuffle", True),
             sort_by_length=task_cfg.sort_by_length,
             aux_target_postfix=task_cfg.aux_target_postfix,
-        ) #; 这里是得到每个audio的特征数量（全部数据），并未读取npy文件
+        ) #; 这里是得到每个audio的特征数量（全部数据），并读取npy文件
 
         logger.info(f"split {split} has unpaired text? {has_unpaired_text}")
         if has_unpaired_text:
