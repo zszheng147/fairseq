@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# from fairseq import metrics
 from fairseq import utils
 from fairseq.data.data_utils import compute_mask_indices
 from fairseq.dataclass import ChoiceEnum, FairseqDataclass
@@ -496,17 +497,22 @@ class Wav2Vec2Model(BaseFairseqModel):
             assert high > 1, f"{bsz,tsz,fsz}"
 
             if self.n_negatives > 0:
-                tszs = (
-                    buffered_arange(num)
-                    .unsqueeze(-1)
-                    .expand(-1, self.n_negatives)
-                    .flatten()
-                )
-
+                # tszs = (buffered_arange(num).unsqueeze(-1).expand(-1, self.n_negatives).flatten())
                 neg_idxs = torch.randint(
-                    low=0, high=high - 1, size=(bsz, self.n_negatives * num)
+                    low=0, high=high - 1, size=(bsz, self.n_negatives * num), device=y.device
                 )
-                neg_idxs[neg_idxs >= tszs] += 1
+                tszs = (torch.arange(num, dtype=neg_idxs.dtype, device=y.device).unsqueeze(-1).expand(-1, self.n_negatives).flatten())
+
+                # metrics.log_start_time("forward_stage1_debug_wall", priority=800, round=0)
+                # neg_idxs[neg_idxs >= tszs] += 1
+                bool_tensor = torch.tensor(neg_idxs >= tszs, dtype=neg_idxs.dtype, device=y.device)
+                neg_idxs += bool_tensor
+
+                # metrics.log_stop_time("forward_stage1_debug_wall")
+                # xyz = neg_idxs >= tszs
+                # print ("xiexie1 neg_idx size: {}, tszs.size: {}".format(neg_idxs.size(), tszs.size()))
+                # print ("xiexie2 neg_idxs size: {}".format(neg_idxs.size()))
+                # print ("xiexie3 xyz size: {}".format(xyz.size()))
 
             if self.cross_sample_negatives > 0:
                 tszs = (
@@ -524,7 +530,9 @@ class Wav2Vec2Model(BaseFairseqModel):
                 cross_neg_idxs[cross_neg_idxs >= tszs] += 1
 
         if self.n_negatives > 0:
-            neg_idxs = neg_idxs + (torch.arange(bsz).unsqueeze(1) * high)
+            plus = (torch.arange(bsz, device=y.device).unsqueeze(1) * high)
+            neg_idxs = neg_idxs + plus
+            # neg_idxs = neg_idxs + (torch.arange(bsz).unsqueeze(1) * high)
         else:
             neg_idxs = cross_neg_idxs
 
@@ -590,6 +598,7 @@ class Wav2Vec2Model(BaseFairseqModel):
         padding_count=None,
     ):
 
+        # metrics.log_start_time("forward_stage1_featext_wall", priority=800, round=0)
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
@@ -597,6 +606,8 @@ class Wav2Vec2Model(BaseFairseqModel):
         else:
             with torch.no_grad():
                 features = self.feature_extractor(source)
+        #metrics.log_stop_time("forward_stage1_featext_wall")
+        #metrics.log_start_time("forward_stage1_quantize_wall", priority=800, round=0)
 
         features_pen = features.float().pow(2).mean()
 
@@ -672,7 +683,11 @@ class Wav2Vec2Model(BaseFairseqModel):
             y = unmasked_features
             mask_indices = None
 
+        # metrics.log_stop_time("forward_stage1_quantize_wall")
+        # metrics.log_start_time("forward_stage1_encoder_wall", priority=800, round=0)
         x, layer_results = self.encoder(x, padding_mask=padding_mask, layer=layer)
+        # metrics.log_stop_time("forward_stage1_encoder_wall")
+        # metrics.log_start_time("forward_stage1_part3_wall", priority=800, round=0)
 
         if features_only:
             return {
@@ -700,6 +715,7 @@ class Wav2Vec2Model(BaseFairseqModel):
                 y = y[mask_indices].view(y.size(0), -1, y.size(-1))
 
             else:
+                # metrics.log_start_time("forward_stage1_part3_part1_wall", priority=800, round=0)
                 q = self.quantizer(y, produce_targets=False)
                 y = q["x"]
                 num_vars = q["num_vars"]
@@ -709,11 +725,15 @@ class Wav2Vec2Model(BaseFairseqModel):
 
                 y = self.project_q(y)
 
+                # metrics.log_stop_time("forward_stage1_part3_part1_wall")
+                # metrics.log_start_time("forward_stage1_sample_wall", priority=800, round=0)
+                # print ("xiexie0, y size: {}".format(y.size()))
                 negs, _ = self.sample_negatives(
                     y,
                     y.size(1),
                     padding_count=padding_count,
                 )
+                # metrics.log_stop_time("forward_stage1_sample_wall")
 
             if self.codebook_negatives > 0:
                 cb_negs = self.quantizer.sample_from_codebook(
@@ -749,6 +769,8 @@ class Wav2Vec2Model(BaseFairseqModel):
         if self.target_glu:
             y = self.target_glu(y)
             negs = self.target_glu(negs)
+        # metrics.log_stop_time("forward_stage1_part3_wall")
+        # metrics.log_start_time("forward_stage1_cpc_wall", priority=800, round=0)
 
         x = self.final_proj(x)
         x = self.compute_preds(x, y, negs)
@@ -765,6 +787,7 @@ class Wav2Vec2Model(BaseFairseqModel):
             result["num_vars"] = num_vars
             result["temp"] = curr_temp
 
+        # metrics.log_stop_time("forward_stage1_cpc_wall")
         return result
 
     def quantize(self, x):

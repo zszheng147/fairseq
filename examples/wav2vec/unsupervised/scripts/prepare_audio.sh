@@ -42,31 +42,36 @@ fi
 
 echo "processing splits: $all_splits"
 
-mkdir -p $tgt_dir
+# mkdir -p $tgt_dir
 
-cp $source_dir/*.tsv $tgt_dir
-cp $source_dir/*.wrd $tgt_dir
-cp $source_dir/*.ltr $tgt_dir
-cp $source_dir/*.phn $tgt_dir
-cp $source_dir/dict* $tgt_dir
+# cp $source_dir/*.tsv $tgt_dir
+# cp $source_dir/*.wrd $tgt_dir
+# cp $source_dir/*.ltr $tgt_dir
+# cp $source_dir/*.phn $tgt_dir
+# cp $source_dir/dict* $tgt_dir
 
 setopt shwordsplit
 
-for split in $all_splits; do
-  python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
-  --save-dir $tgt_dir --checkpoint $model --layer $layer
-done
+# step0: generate representations
+# for split in $all_splits; do
+#   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
+#   --save-dir $tgt_dir --checkpoint $model --layer $layer
+# done
 
-python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
---checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
+# step1: kmeans clustering
+# python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_cluster_faiss.py $tgt_dir/${train_split}.tsv \
+# --checkpoint $model --save-dir $tgt_dir -f "CLUS128" --sample-pct 1.0
 
-for split in $all_splits; do
-  python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_apply_cluster_faiss.py $tgt_dir \
-  --checkpoint $model --path $tgt_dir/CLUS128 --split $split
-done
+# step2: apply kmeans, get pseudo labels
+# for split in $all_splits; do
+#   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_apply_cluster_faiss.py $tgt_dir \
+#   --checkpoint $model --path $tgt_dir/CLUS128 --split $split
+# done
 
-python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/pca.py $tgt_dir/${train_split}.npy --output $tgt_dir/pca --dim $dim
+# step3: apply pca
+# python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/pca.py $tgt_dir/${train_split}.npy --output $tgt_dir/pca --dim $dim
 
+# step4: 
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/apply_pca.py $tgt_dir --split $split --save-dir $tgt_dir/precompute_pca$dim --pca-path $tgt_dir/pca/${dim}_pca --batch-size 1048000
 

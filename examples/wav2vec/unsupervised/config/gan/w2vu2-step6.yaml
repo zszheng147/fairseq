@@ -4,7 +4,7 @@ common:
   fp16: false
   fp16_no_flatten_grads: true
   log_format: json
-  log_interval: 1000
+  log_interval: 100
   tensorboard_logdir: tb
   reset_logging: false
   suppress_crashes: false
@@ -29,6 +29,7 @@ task:
   max_length: null
   append_eos: false
   kenlm_path: ???
+  aux_target_postfix: None
 
 dataset:
   num_workers: 6
@@ -55,7 +56,7 @@ optimizer:
   _name: composite
   groups:
     generator:
-      lr: [0.0004]
+      lr: [0.00005]
       lr_float: null
       optimizer:
         _name: adam
@@ -67,7 +68,7 @@ optimizer:
         _name: fixed
         warmup_updates: 0
     discriminator:
-      lr: [ 0.0005 ]
+      lr: [ 0.0003 ]
       lr_float: null
       optimizer:
         _name: adam
@@ -86,7 +87,7 @@ model:
 
   discriminator_dim: 384
   discriminator_depth: 2
-  discriminator_kernel: 6
+  discriminator_kernel: 8
   discriminator_linear_emb: false
   discriminator_causal: true
   discriminator_max_pool: false
@@ -94,20 +95,24 @@ model:
   discriminator_dropout: 0.0
   discriminator_weight_norm: false
 
-  generator_stride: 1
-  generator_kernel: 4
+  generator_stride: 3
+  generator_kernel: 9
   generator_bias: false
   generator_dropout: 0.1
+  generator_batch_norm: 30
+  generator_residual: true
 
-  smoothness_weight: 0.5
+  smoothness_weight: 1.5
   smoothing: 0
   smoothing_one_sided: false
   gumbel: false
   hard_gumbel: false
-  gradient_penalty: 1.5
-  code_penalty: 4.0
+  gradient_penalty: 1.0
+  code_penalty: 3.0
   temp: [ 2,0.1,0.99995 ]
-  input_dim: 512
+  input_dim: 1024
+  mmi_weight: 0.5
+  target_dim: 64
 
   segmentation:
     type: JOIN

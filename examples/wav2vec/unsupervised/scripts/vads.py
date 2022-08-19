@@ -15,6 +15,8 @@ from tqdm import tqdm
 import soundfile as sf
 import os.path as osp
 
+from multiprocessing import Pool
+from functools import partial
 
 def get_parser():
     parser = argparse.ArgumentParser(description="compute vad segments")
@@ -25,17 +27,24 @@ def get_parser():
         required=True,
     )
 
+    parser.add_argument('--ori_file',type=str,help='path to tsv file',required=True)
+    parser.add_argument('--vad_file',type=str,help='gene vad file',required=True)
+    parser.add_argument('--cpus',type=int,default=40,help='multi processing num of cores')
+
     return parser
 
 
-def rvad(speechproc, path):
+def rvad(path):
     winlen, ovrlen, pre_coef, nfilter, nftt = 0.025, 0.01, 0.97, 20, 512
     ftThres = 0.5
     vadThres = 0.4
     opts = 1
 
+    import speechproc
+    path = '/userhome/data/librispeech/LibriSpeech/train-clean-100/' + path.split('\t')[0]
+
     data, fs = sf.read(path)
-    assert fs == 16_000, "sample rate must be 16khz"
+    assert fs == 16000, "sample rate must be 16khz"
     ft, flen, fsh10, nfr10 = speechproc.sflux(data, fs, winlen, ovrlen, nftt)
 
     # --spectral flatness --
@@ -71,14 +80,25 @@ def main():
     args = parser.parse_args()
 
     sys.path.append(args.rvad_home)
-    import speechproc
 
     stride = 160
-    lines = sys.stdin.readlines()
-    root = lines[0].rstrip()
-    for fpath in tqdm(lines[1:]):
-        path = osp.join(root, fpath.split()[0])
-        vads, wav = rvad(speechproc, path)
+    # lines = sys.stdin.readlines()
+    # root = lines[0].rstrip()
+
+
+    num_lines = sum(1 for line in open(args.ori_file, 'r', encoding="utf8"))
+    rf = open(args.ori_file, 'r', encoding="utf8").readlines()
+    wf = open(args.vad_file, 'a+', encoding="utf8")
+
+
+    p = Pool(args.cpus)
+
+
+    func = partial(rvad)
+
+
+    for rslt in tqdm(p.imap(func, rf[1:], chunksize=20),total=num_lines-1):
+        vads, wav = rslt
 
         start = None
         vad_segs = []
@@ -92,6 +112,26 @@ def main():
             vad_segs.append((start, len(wav)))
 
         print(" ".join(f"{v[0]}:{v[1]}" for v in vad_segs))
+        wf.write(" ".join(f"{v[0]}:{v[1]}" for v in vad_segs)+'\n')
+
+
+
+    # for fpath in tqdm(lines[1:]):
+    #     path = osp.join(root, fpath.split()[0])
+    #     vads, wav = rvad(speechproc, path)
+    #
+    #     start = None
+    #     vad_segs = []
+    #     for i, v in enumerate(vads):
+    #         if start is None and v == 1:
+    #             start = i * stride
+    #         elif start is not None and v == 0:
+    #             vad_segs.append((start, i * stride))
+    #             start = None
+    #     if start is not None:
+    #         vad_segs.append((start, len(wav)))
+    #
+    #     print(" ".join(f"{v[0]}:{v[1]}" for v in vad_segs))
 
 
 if __name__ == "__main__":

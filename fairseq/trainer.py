@@ -820,6 +820,7 @@ class Trainer(object):
             try:
                 with maybe_no_sync():
                     # forward and backward
+                    metrics.log_start_time("compute_wall", priority=800, round=0)
                     loss, sample_size_i, logging_output = self.task.train_step(
                         sample=sample,
                         model=self.model,
@@ -829,6 +830,7 @@ class Trainer(object):
                         ignore_grad=is_dummy_batch,
                         **extra_kwargs,
                     )
+                    metrics.log_stop_time("compute_wall")
                     del loss
 
                 logging_outputs.append(logging_output)

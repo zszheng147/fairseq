@@ -12,7 +12,7 @@ checkpoint:
 
 task:
   _name: audio_pretraining
-  data: ???
+  data: /userhome/user/zsz01/repo/fairseq/examples/wav2vec/manifest/train.tsv
   max_sample_size: 250000
   min_sample_size: 32000
   normalize: false

@@ -35,7 +35,7 @@ criterion:
   zero_infinity: true
 
 optimization:
-  max_update: 13000
+  max_update: 12000
   lr: [0.00005]
   sentence_avg: true
   update_freq: [4]
@@ -55,7 +55,7 @@ model:
   w2v_path: ???
   apply_mask: true
   mask_prob: 0.65
-  mask_channel_prob: 0.25
+  mask_channel_prob: 0.5
   mask_channel_length: 64
   layerdrop: 0.1
   activation_dropout: 0.1

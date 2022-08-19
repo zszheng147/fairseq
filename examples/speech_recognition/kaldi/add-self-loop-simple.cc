@@ -25,10 +25,10 @@ int32 AddSelfLoopsSimple(fst::StdVectorFst* fst) {
   int32 num_states_before = fst->NumStates();
   fst::MakePrecedingInputSymbolsSame(false, fst);
   int32 num_states_after = fst->NumStates();
-  KALDI_LOG << "There are " << num_states_before
-            << " states in the original FST; "
-            << " after MakePrecedingInputSymbolsSame, there are "
-            << num_states_after << " states " << std::endl;
+//   KALDI_LOG << "There are " << num_states_before
+//             << " states in the original FST; "
+//             << " after MakePrecedingInputSymbolsSame, there are "
+//             << num_states_after << " states " << std::endl;
 
   auto weight_one = fst::StdArc::Weight::One();
 
@@ -81,14 +81,14 @@ int main(int argc, char** argv) {
 
   auto fst = fst::ReadFstKaldi(input);
   auto num_states = fst->NumStates();
-  KALDI_LOG << "Loading FST from " << input << " with " << num_states
-            << " states." << std::endl;
+  /* KALDI_LOG << "Loading FST from " << input << " with " << num_states
+            << " states." << std::endl; */
 
   int32 num_arc_added = AddSelfLoopsSimple(fst);
-  KALDI_LOG << "Adding " << num_arc_added << " self-loop arcs " << std::endl;
+  // KALDI_LOG << "Adding " << num_arc_added << " self-loop arcs " << std::endl;
 
   fst::WriteFstKaldi(*fst, std::string(output));
-  KALDI_LOG << "Writing FST to " << output << std::endl;
+  // KALDI_LOG << "Writing FST to " << output << std::endl;
 
   delete fst;
 }

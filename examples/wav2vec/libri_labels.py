@@ -34,7 +34,8 @@ def main():
             dir = os.path.dirname(line)
             if dir not in transcriptions:
                 parts = dir.split(os.path.sep)
-                trans_path = f"{parts[-2]}-{parts[-1]}.trans.txt"
+                trans_path = "-".join(line.split("/")[1].split("-")[0:2])+".trans.txt" # new
+#                 trans_path = f"{parts[-2]}-{parts[-1]}.trans.txt" # prototype
                 path = os.path.join(root, dir, trans_path)
                 assert os.path.exists(path)
                 texts = {}
