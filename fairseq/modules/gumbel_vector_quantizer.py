@@ -176,7 +176,6 @@ class GumbelVectorQuantizer(nn.Module):
         else:
             x = hard_x
         
-        result["one_hot"] = x
         x = x.view(bsz * tsz, -1)
 
         vars = self.vars

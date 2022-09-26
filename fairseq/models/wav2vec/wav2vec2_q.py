@@ -601,8 +601,7 @@ class Wav2Vec2QModel(BaseFairseqModel):
 
             bsz, tsz, _ = features.shape
             q = self.quantizer(features, produce_targets=False)
-            features = q["one_hot"]
-            features = features.argmax(-1).view(bsz, tsz, 2)
+            features = q["x"]
 
             result['quantized'] = features
 
