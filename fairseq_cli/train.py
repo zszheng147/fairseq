@@ -319,7 +319,7 @@ def train(
             except StopIteration:
                 break
 
-            log_output = trainer.train_step(samples)
+            log_output = trainer.train_step(samples) #; 进入模型训练
 
         if log_output is not None:  # not OOM, overflow, ...
             # log mid-epoch stats

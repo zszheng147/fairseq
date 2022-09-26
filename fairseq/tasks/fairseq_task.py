@@ -292,7 +292,7 @@ class FairseqTask(object):
             )
 
         # create mini-batches with given size constraints
-        batch_sampler = dataset.batch_by_size(
+        batch_sampler = dataset.batch_by_size( #!
             indices,
             max_tokens=max_tokens,
             max_sentences=max_sentences,

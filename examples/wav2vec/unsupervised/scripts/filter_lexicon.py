@@ -27,12 +27,15 @@ def main():
 
     for line in sys.stdin:
         items = line.rstrip().split()
+        # while "'" in items:
+        #     items.remove("'")
         skip = len(items) < 2
         for x in items[1:]:
             if x not in symbols:
                 skip = True
                 break
         if not skip:
+            # print(*items)
             print(line, end="")
 
 

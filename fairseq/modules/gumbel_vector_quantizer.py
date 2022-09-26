@@ -175,7 +175,8 @@ class GumbelVectorQuantizer(nn.Module):
             x = F.gumbel_softmax(x.float(), tau=self.curr_temp, hard=True).type_as(x)
         else:
             x = hard_x
-
+        
+        result["one_hot"] = x
         x = x.view(bsz * tsz, -1)
 
         vars = self.vars

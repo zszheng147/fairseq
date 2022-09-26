@@ -18,6 +18,8 @@ import codecs, unicodedata
 import re
 import nltk
 import time
+import multiprocessing as mp
+import os
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Pre-process a book's text")
@@ -60,12 +62,12 @@ def convert_roman(text):
         new_lines.append(l)
     return '\n'.join(new_lines)
 
-def segment_sentences(text, sent_marker):
+def segment_sentences(text):
     punkt = nltk.data.load('tokenizers/punkt/english.pickle')
     sents = punkt.tokenize(text)
     line_sents = [re.sub('\r?\n', ' ', s) for s in sents]
-    line_sep = ' %s \n' % sent_marker
-    return (line_sep.join(line_sents) + sent_marker)
+    line_sep = '  \n' 
+    return (line_sep.join(line_sents))
 
 def pre_segment(text):
     """
@@ -86,22 +88,48 @@ def pre_segment(text):
     return '\n'.join(out_text)
 
 if __name__ == '__main__':
-    start_time = time.time()
     opts = parse_args()
-    with codecs.open(opts.in_text, 'r', opts.in_encoding, errors='ignore') as src:
-        text_in = src.read()
+    corpus_path = os.walk(opts.in_text)
+
+    corpus = []
+    txt_path = []
+    for path,dir_list,file_list in corpus_path:  
+        for file_name in file_list:
+            txt_path.append(os.path.join(path, file_name))
+
+    for path in sorted(txt_path):
+        with open(path, 'r', encoding='utf-8') as rf:
+            sf = rf.read()
+            corpus.append(sf)
+
+    # with open(opts.in_text, 'r', opts.in_encoding, errors='ignore') as src:
+    #     text_in = src.read()
 
     # text = unicodedata.normalize('NFKD', text_in).encode(opts.out_encoding, 'ignore')
-    text = unicodedata.normalize('NFKD', text_in)
-    text = convert_roman(text)
-    text = pre_segment(text)
-    text = segment_sentences(text, opts.sent_end_marker)
+    text = [ unicodedata.normalize('NFKD', text_in) for text_in in corpus]
+    
+    with mp.Pool(mp.cpu_count()) as p:
+        # text = p.map(unicodedata.normalize, 'NFKD', corpus)
+        text = p.map(convert_roman, text)
+        text = p.map(pre_segment, text)
+        text = p.map(segment_sentences, text)
 
-    with open(opts.out_text, 'w') as dst:
-        dst.write(text)
+    os.makedirs(opts.out_text, exist_ok=True)
+
+    for idx, s in enumerate(text, 1):
+        with open(os.path.join(opts.out_text, '%d.txt' % idx), 'w') as wf:
+            wf.write(s)
+
+    # text = unicodedata.normalize('NFKD', text_in)
+    # text = convert_roman(text)
+    # text = pre_segment(text)
+    # text = segment_sentences(text, opts.sent_end_marker)
+
+    # with open(opts.out_text, 'w') as dst:
+    #     dst.write(text)
 
     
-    end_time = time.time()
-    print("Runtime: {:.2f}second".format(end_time - start_time))
+    # end_time = time.time()
+    # print("Runtime: {:.2f}second".format(end_time - start_time))
 
 

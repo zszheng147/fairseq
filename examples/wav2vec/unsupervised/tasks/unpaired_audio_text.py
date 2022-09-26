@@ -203,7 +203,7 @@ class UnpairedAudioText(FairseqTask):
             )
         ):
 
-            if t is not None:
+            if t is not None:       #; remove tokens at padding
                 t = t[(t >= self.target_dictionary.nspecial)]
             x = x[
                 (x >= self.target_dictionary.nspecial)
@@ -255,7 +255,7 @@ class UnpairedAudioText(FairseqTask):
             if self.kenlm is not None:
                 pred_str = self.target_dictionary.string(pred_units_arr)
                 lm_score = self.compute_lm_score(pred_str)
-                lm_score_sum += lm_score
+                lm_score_sum += lm_score 
 
         kaldi_score_sum = 0
         word_lm_sum = 0

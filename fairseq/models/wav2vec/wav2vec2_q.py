@@ -41,7 +41,7 @@ LAYER_TYPE_CHOICES = ChoiceEnum(["transformer", "conformer"])
 
 
 @dataclass
-class Wav2Vec2Config(FairseqDataclass):
+class Wav2Vec2QConfig(FairseqDataclass):
     extractor_mode: EXTRACTOR_MODE_CHOICES = field(
         default="default",
         metadata={
@@ -70,10 +70,10 @@ class Wav2Vec2Config(FairseqDataclass):
     )
     # dropouts
     dropout: float = field(
-        default=0.1, metadata={"help": "dropout probability for the transformer"}
+        default=0.0, metadata={"help": "dropout probability for the transformer"}
     )
     attention_dropout: float = field(
-        default=0.1, metadata={"help": "dropout probability for attention weights"}
+        default=0.0, metadata={"help": "dropout probability for attention weights"}
     )
     activation_dropout: float = field(
         default=0.0, metadata={"help": "dropout probability after activation in FFN"}
@@ -126,7 +126,7 @@ class Wav2Vec2Config(FairseqDataclass):
         default=False, metadata={"help": "adds projection + glu to targets"}
     )
     feature_grad_mult: float = field(
-        default=1.0, metadata={"help": "multiply feature extractor var grads by this"}
+        default=0.0, metadata={"help": "multiply feature extractor var grads by this"}
     )
     quantizer_depth: int = field(
         default=1,
@@ -290,9 +290,9 @@ class Wav2Vec2Config(FairseqDataclass):
     fp16: bool = field(default=False, metadata={"help": "If fp16 is being used"})
 
 
-@register_model("wav2vec2", dataclass=Wav2Vec2Config)
-class Wav2Vec2Model(BaseFairseqModel):
-    def __init__(self, cfg: Wav2Vec2Config):
+@register_model("wav2vec2_q", dataclass=Wav2Vec2QConfig)
+class Wav2Vec2QModel(BaseFairseqModel):
+    def __init__(self, cfg: Wav2Vec2QConfig):
         super().__init__()
         self.cfg = cfg
 
@@ -406,7 +406,7 @@ class Wav2Vec2Model(BaseFairseqModel):
         return state_dict
 
     @classmethod
-    def build_model(cls, cfg: Wav2Vec2Config, task=None):
+    def build_model(cls, cfg: Wav2Vec2QConfig, task=None):
         """Build a new model instance."""
 
         return cls(cfg)
@@ -591,191 +591,29 @@ class Wav2Vec2Model(BaseFairseqModel):
         mask_channel_indices=None,
         padding_count=None,
     ):
-
-        if self.feature_grad_mult > 0:
+        result = {}
+        
+        with torch.no_grad():
             features = self.feature_extractor(source)
-            if self.feature_grad_mult != 1.0:
-                features = GradMultiply.apply(features, self.feature_grad_mult) #? why apply?
-        else:
-            with torch.no_grad():
-                features = self.feature_extractor(source)
+            
+            features = features.transpose(1, 2)
+            features = self.layer_norm(features)
 
-        features_pen = features.float().pow(2).mean()  #?
+            bsz, tsz, _ = features.shape
+            q = self.quantizer(features, produce_targets=False)
+            features = q["one_hot"]
+            features = features.argmax(-1).view(bsz, tsz, 2)
 
-        features = features.transpose(1, 2)
-        features = self.layer_norm(features)
-        unmasked_features = features.clone()
+            result['quantized'] = features
 
-        if padding_mask is not None and padding_mask.any():
-            input_lengths = (1 - padding_mask.long()).sum(-1)
-            # apply conv formula to get real output_lengths
-            output_lengths = self._get_feat_extract_output_lengths(input_lengths)
-
-            padding_mask = torch.zeros(
-                features.shape[:2], dtype=features.dtype, device=features.device
-            )
-
-            # these two operations makes sure that all values
-            # before the output lengths indices are attended to
-            padding_mask[
-                (
-                    torch.arange(padding_mask.shape[0], device=padding_mask.device),
-                    output_lengths - 1,
-                )
-            ] = 1
-            padding_mask = (1 - padding_mask.flip([-1]).cumsum(-1).flip([-1])).bool()
-        else:
-            padding_mask = None
-
-        time_steps_to_drop = features.size(1) % self.crop_seq_to_multiple
-        if time_steps_to_drop != 0:
-            features = features[:, :-time_steps_to_drop]
-            unmasked_features = unmasked_features[:, :-time_steps_to_drop]
-            if padding_mask is not None:
-                padding_mask = padding_mask[:, :-time_steps_to_drop]
-
-        if self.post_extract_proj is not None:
-            features = self.post_extract_proj(features)
-
-        features = self.dropout_input(features)
-        unmasked_features = self.dropout_features(unmasked_features)
-
-        num_vars = None
-        code_ppl = None
-        prob_ppl = None
-        curr_temp = None
-
-        if self.input_quantizer:
-            q = self.input_quantizer(features, produce_targets=False)
-            features = q["x"]
-            num_vars = q["num_vars"]
-            code_ppl = q["code_perplexity"]
-            prob_ppl = q["prob_perplexity"]
-            curr_temp = q["temp"]
-            features = self.project_inp(features)
-
-        if mask:
-            x, mask_indices = self.apply_mask(
-                features,
-                padding_mask,
-                mask_indices=mask_indices,
-                mask_channel_indices=mask_channel_indices,
-            )
-            if not is_xla_tensor(x) and mask_indices is not None:
-                # tpu-comment: reducing the size in a dynamic way causes
-                # too many recompilations on xla.
-                y = unmasked_features[mask_indices].view(
-                    unmasked_features.size(0), -1, unmasked_features.size(-1)
-                )
-                #: here should be skipped if only quantizer is used
-            else:
-                y = unmasked_features
-        else:
-            x = features
-            y = unmasked_features
-            mask_indices = None
-
-        x, layer_results = self.encoder(x, padding_mask=padding_mask, layer=layer)
-
-        if features_only:
-            return {
-                "x": x,
-                "padding_mask": padding_mask,
-                "features": unmasked_features,
-                "layer_results": layer_results,
-            }
-
-        if self.quantizer:
-            if self.negatives_from_everywhere:
-                q = self.quantizer(unmasked_features, produce_targets=False)
-                y = q["x"]
-                num_vars = q["num_vars"]
-                code_ppl = q["code_perplexity"]
-                prob_ppl = q["prob_perplexity"]
-                curr_temp = q["temp"]
-                y = self.project_q(y)
-
-                negs, _ = self.sample_negatives(
-                    y,
-                    mask_indices[0].sum(),
-                    padding_count=padding_count,
-                )
-                y = y[mask_indices].view(y.size(0), -1, y.size(-1))
-
-            else:
-                q = self.quantizer(y, produce_targets=False)
-                y = q["x"]
-                num_vars = q["num_vars"]
-                code_ppl = q["code_perplexity"]
-                prob_ppl = q["prob_perplexity"]
-                curr_temp = q["temp"]
-
-                y = self.project_q(y)
-
-                negs, _ = self.sample_negatives(
-                    y,
-                    y.size(1),
-                    padding_count=padding_count,
-                )
-
-            if self.codebook_negatives > 0:
-                cb_negs = self.quantizer.sample_from_codebook(
-                    y.size(0) * y.size(1), self.codebook_negatives
-                )
-                cb_negs = cb_negs.view(
-                    self.codebook_negatives, y.size(0), y.size(1), -1
-                )  # order doesnt matter
-                cb_negs = self.project_q(cb_negs)
-                negs = torch.cat([negs, cb_negs], dim=0)
-        else:
-            y = self.project_q(y)
-
-            if self.negatives_from_everywhere:
-                negs, _ = self.sample_negatives(
-                    unmasked_features,
-                    y.size(1),
-                    padding_count=padding_count,
-                )
-                negs = self.project_q(negs)
-            else:
-                negs, _ = self.sample_negatives(
-                    y,
-                    y.size(1),
-                    padding_count=padding_count,
-                )
-
-        if not is_xla_tensor(x):
-            # tpu-comment: reducing the size in a dynamic way causes
-            # too many recompilations on xla.
-            x = x[mask_indices].view(x.size(0), -1, x.size(-1))
-
-        if self.target_glu:
-            y = self.target_glu(y)
-            negs = self.target_glu(negs)
-
-        x = self.final_proj(x)
-        x = self.compute_preds(x, y, negs)
-
-        result = {
-            "x": x,
-            "padding_mask": padding_mask,
-            "features_pen": features_pen,
-        }
-
-        if prob_ppl is not None:
-            result["prob_perplexity"] = prob_ppl
-            result["code_perplexity"] = code_ppl
-            result["num_vars"] = num_vars
-            result["temp"] = curr_temp
-
-        return result
+            return result
 
     def quantize(self, x):
         assert self.quantizer is not None
         x = self.feature_extractor(x)
         x = x.transpose(1, 2)
         x = self.layer_norm(x)
-        return self.quantizer.forward_idx(x)
+        return self.quantizer.forward_idx()
 
     def extract_features(self, source, padding_mask, mask=False, layer=None):
         res = self.forward(
@@ -920,7 +758,7 @@ def make_conv_pos(e, k, g):
 
 
 class TransformerEncoder(nn.Module):
-    def build_encoder_layer(self, args: Wav2Vec2Config):
+    def build_encoder_layer(self, args: Wav2Vec2QConfig):
         if args.layer_type == "transformer":
             layer = TransformerSentenceEncoderLayer(
                 embedding_dim=self.embedding_dim,
@@ -949,7 +787,7 @@ class TransformerEncoder(nn.Module):
             layer = checkpoint_wrapper(layer)
         return layer
 
-    def __init__(self, args: Wav2Vec2Config):
+    def __init__(self, args: Wav2Vec2QConfig):
         super().__init__()
 
         self.dropout = args.dropout

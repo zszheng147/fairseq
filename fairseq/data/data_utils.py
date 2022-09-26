@@ -509,7 +509,7 @@ def compute_mask_indices(
                     for offset in range(lengths[j])
                 ]
             )
-
+        #; due to overlap, actual masked length might be smaller than desired
         mask_idcs.append(np.unique(mask_idc[mask_idc < sz]))
 
     min_len = min([len(m) for m in mask_idcs])
