@@ -419,12 +419,14 @@ class EpochBatchIterator(EpochBatchIterating):
         """Copies the state of the iterator from the given *state_dict*."""
         self.epoch = state_dict["epoch"]
         itr_pos = state_dict.get("iterations_in_epoch", 0)
+        # itr_pos = 0
         version = state_dict.get("version", 1)
         if itr_pos > 0:
             # fast-forward epoch iterator
             self._next_epoch_itr = self._get_iterator_for_epoch(
                 self.epoch,
-                shuffle=state_dict.get("shuffle", True),
+                shuffe=state_dict.get("shuffle", True),
+                # shuffle=False,
                 offset=itr_pos,
             )
             if self._next_epoch_itr is None:

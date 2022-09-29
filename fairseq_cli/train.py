@@ -306,6 +306,8 @@ def train(
 
     i = 0
     progress_iter = iter(progress)
+
+    # quantizers, feat_lengths = [], []
     while True:
     # for i, samples in enumerate(progress):
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
@@ -320,6 +322,7 @@ def train(
                 break
 
             log_output = trainer.train_step(samples) #; 进入模型训练
+
 
         if log_output is not None:  # not OOM, overflow, ...
             # log mid-epoch stats
@@ -339,6 +342,12 @@ def train(
 
         if should_stop:
             break
+    
+    # torch.save(torch.cat([j for i in quantizers for j in i]), \
+    #         os.path.join(cfg.task.data, 'quantizers.pt'))
+
+    # with open(os.path.join(cfg.task.data, 'feat_lengths'), "w") as feat_f:
+    #     print(*[f"{j}\n" for i in feat_lengths for j in i], file=feat_f)
 
     # log end-of-epoch stats
     logger.info("end of epoch {} (average epoch stats below)".format(epoch_itr.epoch))

@@ -52,6 +52,7 @@ class Wav2vecQCriterion(FairseqCriterion):
         """
         net_output = model(**sample["net_input"])
         quantized_token = net_output['quantized']
+        length = quantized_token.shape[0]
 
         loss = torch.tensor(0.0, requires_grad=True)
         sample_size = quantized_token.shape[0]
@@ -62,7 +63,7 @@ class Wav2vecQCriterion(FairseqCriterion):
             "nsentences": sample["id"].numel(),
             "sample_size": sample_size,
         }
-        return loss, sample_size, logging_output
+        return loss, sample_size, logging_output, quantized_token, length
 
     @staticmethod
     def reduce_metrics(logging_outputs) -> None:

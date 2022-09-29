@@ -6,6 +6,7 @@
 import math
 from dataclasses import dataclass, field
 from typing import List, Tuple
+from xml.sax.handler import feature_external_ges
 
 import numpy as np
 import torch
@@ -602,6 +603,7 @@ class Wav2Vec2QModel(BaseFairseqModel):
             bsz, tsz, _ = features.shape
             q = self.quantizer(features, produce_targets=False)
             features = q["x"]
+            features = features.squeeze(0).to('cpu')
 
             result['quantized'] = features
 

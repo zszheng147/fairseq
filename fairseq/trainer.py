@@ -798,6 +798,7 @@ class Trainer(object):
 
         # forward and backward pass
         logging_outputs, sample_size, ooms = [], 0, 0
+        # quantizers, feat_lengths = [], []
         for i, sample in enumerate(samples):  # delayed update loop
             sample, is_dummy_batch = self._prepare_sample(sample)
 
@@ -824,7 +825,7 @@ class Trainer(object):
             try:
                 with maybe_no_sync():
                     # forward and backward
-                    loss, sample_size_i, logging_output = self.task.train_step(
+                    loss, sample_size_i, logging_output= self.task.train_step(
                         sample=sample,
                         model=self.model,
                         criterion=self.criterion,
@@ -837,6 +838,8 @@ class Trainer(object):
 
                 logging_outputs.append(logging_output)
                 sample_size += sample_size_i
+                # quantizers.append(quantizer)
+                # feat_lengths.append(feat_length)
 
                 # emptying the CUDA cache after the first step can
                 # reduce the chance of OOM
