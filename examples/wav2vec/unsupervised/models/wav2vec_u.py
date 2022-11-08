@@ -38,7 +38,7 @@ class SegmentationConfig(FairseqDataclass):
     mean_pool: bool = True
     mean_pool_join: bool = False
     remove_zeros: bool = False
-    labels: str  = "Phn"
+    labels: str  = "phn"
 
 
 @dataclass
