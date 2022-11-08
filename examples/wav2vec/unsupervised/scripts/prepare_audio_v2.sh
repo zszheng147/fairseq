@@ -44,13 +44,13 @@ echo "processing splits: $all_splits"
 
 mkdir -p $tgt_dir
 
-# cp $source_dir/*.tsv $tgt_dir
-# cp $source_dir/*.wrd $tgt_dir
-# cp $source_dir/*.ltr $tgt_dir
-# cp $source_dir/*.phn $tgt_dir
-# cp $source_dir/dict* $tgt_dir
+cp $source_dir/*.tsv $tgt_dir
+cp $source_dir/*.wrd $tgt_dir
+cp $source_dir/*.ltr $tgt_dir
+cp $source_dir/*.phn $tgt_dir
+cp $source_dir/dict* $tgt_dir
 
-# setopt shwordsplit
+setopt shwordsplit
 
 for split in $all_splits; do
   python $FAIRSEQ_ROOT/examples/wav2vec/unsupervised/scripts/wav2vec_extract_features.py $source_dir --split $split \
@@ -58,7 +58,7 @@ for split in $all_splits; do
 done
 
 
-# mkdir -p $tgt_dir/mfcc
+mkdir -p $tgt_dir/mfcc
 
 # Consider spliting corpus into chuncks for large corpus, see HuBERT preprocessing for more details
 python $FAIRSEQ_ROOT/examples/hubert/simple_kmeans/dump_mfcc_feature.py \
