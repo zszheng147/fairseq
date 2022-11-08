@@ -38,6 +38,7 @@ class SegmentationConfig(FairseqDataclass):
     mean_pool: bool = True
     mean_pool_join: bool = False
     remove_zeros: bool = False
+    labels: str  = "Phn"
 
 
 @dataclass
@@ -153,6 +154,7 @@ class JoinSegmenter(Segmenter):
 
         bsz, tsz, csz = logits.shape
 
+        #; only when removing duplicated unit is necessary can you run the following code
         for p in preds:
             uniques.append(
                 p.cpu().unique_consecutive(return_inverse=True, return_counts=True)
@@ -164,7 +166,10 @@ class JoinSegmenter(Segmenter):
 
         for b in range(bsz):
             u, idx, c = uniques[b] #; array removing duplicate; idx; count 
-            keep = u != -1
+            if self.cfg.labels == "ltr":
+                keep = (u != -1) & (u != 32)
+            else:
+                keep = u != -1
 
             if self.cfg.remove_zeros:
                 keep.logical_and_(u != 0)
@@ -593,6 +598,7 @@ class Wav2vec_U(BaseFairseqModel):
         orig_dense_padding_mask = gen_result["dense_padding_mask"]
 
         if segment:
+            # if
             dense_x, dense_padding_mask = self.segmenter.logit_segment(
                 orig_dense_x, orig_dense_padding_mask
             ) #; sample duplicated segment ; renew each matrix
