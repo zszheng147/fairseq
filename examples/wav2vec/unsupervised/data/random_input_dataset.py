@@ -18,7 +18,7 @@ class RandomInputDataset(BaseWrapperDataset):
         add_to_input,
         pad_idx,
     ):
-        super().__init__(dataset)
+        super().__init__(dataset)      
         self.random_input_dataset = random_input_dataset
         if isinstance(input_key_path, str):
             input_key_path = [input_key_path]
@@ -26,6 +26,7 @@ class RandomInputDataset(BaseWrapperDataset):
         self.input_key_path = input_key_path
         self.add_to_input = add_to_input
         self.pad_idx = pad_idx
+
 
     def get_target(self, item):
         target_loc = item

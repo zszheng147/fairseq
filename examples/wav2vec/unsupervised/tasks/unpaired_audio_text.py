@@ -49,6 +49,9 @@ class UnpairedAudioTextConfig(FairseqDataclass):
     text_data: str = field(
         default=MISSING, metadata={"help": "path to data directory containing text"}
     )
+    valid_data: str = field(
+        default=MISSING, metadata={"help": "path to data directory containing dev-other"}
+    )
     max_length: Optional[int] = None
     labels: Optional[str] = field(
         default=None,
@@ -290,9 +293,13 @@ class UnpairedAudioText(FairseqTask):
         return c_err, c_len, logging_output
 
     def load_dataset(self, split: str, task_cfg: FairseqDataclass = None, **kwargs):
-        data_path = self.cfg.data
-        task_cfg = task_cfg or self.cfg
+        if split == 'dev-other':
+            data_path = self.cfg.valid_data
+        else:
+            data_path = self.cfg.data
 
+        task_cfg = task_cfg or self.cfg
+        
         has_unpaired_text = os.path.exists(
             os.path.join(self.cfg.text_data, f"{split}.idx")
         )

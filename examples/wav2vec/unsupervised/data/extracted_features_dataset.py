@@ -31,7 +31,6 @@ class ExtractedFeaturesDataset(FairseqDataset):
         aux_target_postfix=None,
     ):
         super().__init__()
-
         self.min_length = min_length
         self.max_length = max_length
         self.shuffle = shuffle

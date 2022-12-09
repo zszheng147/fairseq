@@ -118,3 +118,4 @@ model:
     type: JOIN
     mean_pool_join: false
     remove_zeros: false
+    labels: phn
