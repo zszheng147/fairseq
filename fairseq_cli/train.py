@@ -40,6 +40,15 @@ from fairseq.logging import meters, metrics, progress_bar
 from fairseq.model_parallel.megatron_trainer import MegatronTrainer
 from fairseq.trainer import Trainer
 
+# def seed_everything(seed):
+#     # import random
+#     # torch.manual_seed(seed)       # Current CPU
+#     # torch.cuda.manual_seed(seed)  # Current GPU
+#     # np.random.seed(seed)          # Numpy module
+#     # random.seed(seed)             # Python random module
+#     # torch.backends.cudnn.benchmark = False    # Close optimization
+#     torch.backends.cudnn.deterministic = True # Close optimization
+#     # torch.cuda.manual_seed_all(seed) # All GPU (Optional)
 
 def main(cfg: FairseqConfig) -> None:
     if isinstance(cfg, argparse.Namespace):
@@ -63,7 +72,8 @@ def main(cfg: FairseqConfig) -> None:
     if cfg.common.log_file is not None:
         handler = logging.FileHandler(filename=cfg.common.log_file)
         logger.addHandler(handler)
-
+    
+    # seed_everything(cfg.common.seed)
     np.random.seed(cfg.common.seed)
     utils.set_torch_seed(cfg.common.seed)
 

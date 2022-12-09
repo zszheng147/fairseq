@@ -22,6 +22,17 @@ from fairseq.modules import (
     TransposeLast,
 )
 
+# def seed_everything(seed):
+#     # import random
+#     # torch.manual_seed(seed)       # Current CPU
+#     # torch.cuda.manual_seed(seed)  # Current GPU
+#     # np.random.seed(seed)          # Numpy module
+#     # random.seed(seed)             # Python random module
+#     # torch.backends.cudnn.benchmark = False    # Close optimization
+#     torch.backends.cudnn.deterministic = True # Close optimization
+#     # torch.cuda.manual_seed_all(seed) # All GPU (Optional)
+
+torch.backends.cudnn.deterministic = True # for reproduciability
 
 class SegmentationType(Enum):
     NONE = auto()
@@ -62,6 +73,7 @@ class Wav2vec_UConfig(FairseqDataclass):
     generator_bias: bool = False
     generator_dropout: float = 0.0
     generator_batch_norm: int = 0
+    generator_layer_norm: int = 0
     generator_residual: bool = False
 
     blank_weight: float = 0
@@ -302,6 +314,7 @@ class Generator(nn.Module):
         self.stride = cfg.generator_stride
         self.dropout = nn.Dropout(cfg.generator_dropout)
         self.batch_norm = cfg.generator_batch_norm != 0
+        self.layer_norm = cfg.generator_layer_norm != 0
         self.residual = cfg.generator_residual
 
         padding = (
@@ -320,6 +333,9 @@ class Generator(nn.Module):
             ),
             TransposeLast(),  # ; 交换矩阵最后两个维度
         )
+        
+        # if self.layer_norm:
+        #     self.ln = nn.LayerNorm()
 
         if self.batch_norm:
             self.bn = nn.BatchNorm1d(input_dim)         #; input_dim = 1024

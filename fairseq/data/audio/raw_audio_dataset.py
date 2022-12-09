@@ -325,7 +325,6 @@ class FileAudioDataset(RawAudioDataset):
         feats = self.postprocess(feats, curr_sample_rate)
         return {"id": index, "source": feats}
 
-
 class BinarizedAudioDataset(RawAudioDataset):
     def __init__(
         self,

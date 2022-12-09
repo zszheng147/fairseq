@@ -425,7 +425,7 @@ class EpochBatchIterator(EpochBatchIterating):
             # fast-forward epoch iterator
             self._next_epoch_itr = self._get_iterator_for_epoch(
                 self.epoch,
-                shuffe=state_dict.get("shuffle", True),
+                shuffle=state_dict.get("shuffle", True),
                 # shuffle=False,
                 offset=itr_pos,
             )
