@@ -69,7 +69,7 @@ if [ $stage -le 2 ] && [ $max_stage -ge 2 ]; then
     $exp_root/mono $exp_root/mono_ali_${tri1_train}
 
   steps_gan/train_deltas.sh --boost-silence 1.25 --cmd "$train_cmd" \
-      --num_nonsil_states $num_nonsil_states $numLeavesTri1 $numGaussTri1 \
+      --num_nonsil_states $num_nonsil_states $numLeavesTri1 $numGaussTri1 \ #!
       $data/$tri1_train $lang \
       $exp_root/mono_ali_${tri1_train} $exp_root/tri1
 

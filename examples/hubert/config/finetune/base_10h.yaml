@@ -36,7 +36,7 @@ dataset:
   validate_interval: 5
   train_subset: train
   valid_subset: valid
-
+  
 criterion:
   _name: ctc
   zero_infinity: true
